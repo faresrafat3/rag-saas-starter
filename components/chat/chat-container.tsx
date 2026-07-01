@@ -6,24 +6,34 @@ import { ChatMessageItem, TypingIndicator } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { EmptyState } from "./empty-state";
 import { useChatContext } from "./chat-provider";
+import { loadMessages, saveMessages } from "@/lib/persistence";
 import { generateId } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/types";
 
 /**
- * Main chat container — manages state, streaming, and scroll behavior.
+ * Main chat container — manages state, streaming, scroll behavior, and
+ * persistence.
  *
- * Session 5 update: integrates with ChatContext to read selected document IDs
- * and includes them in the chat request (enabling RAG retrieval on the server).
+ * Session 5B update:
+ * - Loads messages from localStorage on mount (survives refresh)
+ * - Saves messages to localStorage on every change
+ * - Reads selected document IDs from context (already persisted by provider)
  */
 export function ChatContainer() {
   const { selectedDocumentIds } = useChatContext();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Lazy initializer: load from localStorage on first render
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages());
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Persist messages to localStorage on every change
+  useEffect(() => {
+    saveMessages(messages);
+  }, [messages]);
 
   // Auto-scroll to bottom on new messages / streaming chunks
   const scrollToBottom = useCallback(() => {
@@ -58,7 +68,8 @@ export function ChatContainer() {
         role: "user",
         content,
         createdAt: Date.now(),
-        documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+        documentIds:
+          selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
       };
 
       const assistantMessage: ChatMessage = {
@@ -132,7 +143,6 @@ export function ChatContainer() {
         );
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
-          // User cancelled — mark as not streaming, keep partial content
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessage.id ? { ...m, isStreaming: false } : m
@@ -144,8 +154,7 @@ export function ChatContainer() {
           setMessages((prev) =>
             prev
               .filter(
-                (m) =>
-                  m.id !== assistantMessage.id || m.content.length > 0
+                (m) => m.id !== assistantMessage.id || m.content.length > 0
               )
               .map((m) =>
                 m.id === assistantMessage.id

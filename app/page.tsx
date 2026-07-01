@@ -1,6 +1,7 @@
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatContainer } from "@/components/chat/chat-container";
 import { DocumentPanel } from "@/components/chat/document-panel";
+import { MobileDocDrawer } from "@/components/chat/mobile-doc-drawer";
 import { ChatProvider } from "@/components/chat/chat-provider";
 
 export default function HomePage() {
@@ -19,11 +20,14 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Mobile layout: chat only (documents panel toggled via header button — TODO session 5B) */}
+          {/* Mobile layout: chat only + drawer accessible via header button */}
           <div className="md:hidden h-full">
             <ChatContainer />
           </div>
         </main>
+
+        {/* Mobile drawer (renders only on small screens) */}
+        <MobileDocDrawer />
       </div>
     </ChatProvider>
   );

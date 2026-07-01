@@ -2,21 +2,23 @@
  * AI Provider Configuration
  * =============================================================================
  * This file follows the Vercel AI SDK pattern (provider-agnostic).
- * The provider is selected based on environment variables.
  *
- * For the demo (when no API key is set), it falls back to a mock streaming
- * response so the UI is fully functional without external dependencies.
+ * Session 5B update: real provider integration via Vercel AI SDK `streamText()`.
  *
- * To use a real provider:
- * 1. Copy `.env.example` to `.env.local`
- * 2. Set OPENAI_API_KEY (or ANTHROPIC_API_KEY)
- * 3. Set AI_PROVIDER=openai (or anthropic)
+ * Provider selection:
+ * - If OPENAI_API_KEY is set → use @ai-sdk/openai
+ * - Else if ANTHROPIC_API_KEY is set → use @ai-sdk/anthropic
+ * - Else → mock mode (returns realistic Arabic mock responses)
  *
- * Session 5 update: RAG context injection.
- * If the request includes `documentIds`, relevant chunks are retrieved
- * via TF-IDF and prepended to the system context.
+ * RAG context injection:
+ * - If request includes `documentIds`, retrieves relevant chunks via TF-IDF
+ * - Builds an Arabic system prompt with the retrieved context
+ * - Passes the system prompt to `streamText()` (or includes it in the mock)
  */
 
+import { streamText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import type { ChatRequest } from "./types";
 import { retrieveRelevantChunks } from "./embeddings";
 import type { RetrievalResult } from "./embeddings";
@@ -28,7 +30,7 @@ import {
   IS_MOCK_MODE,
 } from "./ai-config";
 
-// Re-export for backwards compatibility with any code that imports from here
+// Re-export for backwards compatibility
 export { AI_PROVIDER, AI_MODEL, AI_TEMPERATURE, AI_MAX_TOKENS, IS_MOCK_MODE };
 
 /**
@@ -48,16 +50,56 @@ export interface ChatGenerationResult {
 }
 
 /**
+ * Lazy-initialized provider instances (only created when API keys are present).
+ */
+let openaiProvider: ReturnType<typeof createOpenAI> | null = null;
+let anthropicProvider: ReturnType<typeof createAnthropic> | null = null;
+
+function getOpenAIProvider() {
+  if (!openaiProvider && process.env.OPENAI_API_KEY) {
+    openaiProvider = createOpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openaiProvider;
+}
+
+function getAnthropicProvider() {
+  if (!anthropicProvider && process.env.ANTHROPIC_API_KEY) {
+    anthropicProvider = createAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+  }
+  return anthropicProvider;
+}
+
+/**
+ * Determine which provider to use.
+ * Priority: explicit AI_PROVIDER env > OPENAI_API_KEY > ANTHROPIC_API_KEY > mock
+ */
+function resolveProvider(): "openai" | "anthropic" | "mock" {
+  if (AI_PROVIDER === "openai" && process.env.OPENAI_API_KEY) return "openai";
+  if (AI_PROVIDER === "anthropic" && process.env.ANTHROPIC_API_KEY)
+    return "anthropic";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  return "mock";
+}
+
+/**
  * Generate a streaming response for the given chat request.
  *
  * If `request.documentIds` is provided, retrieves relevant chunks
- * via TF-IDF and prepends them to the context.
+ * via TF-IDF and prepends them to the context as a system prompt.
  */
 export async function generateChatResponse(
   request: ChatRequest
 ): Promise<ChatGenerationResult> {
   // 1. RAG retrieval (if documents are specified)
-  let ragContext: { chunks: RetrievalResult[]; systemPrompt: string } | undefined;
+  let ragContext: {
+    chunks: RetrievalResult[];
+    systemPrompt: string;
+  } | undefined;
 
   if (request.documentIds && request.documentIds.length > 0) {
     const lastUserMessage = [...request.messages]
@@ -79,20 +121,143 @@ export async function generateChatResponse(
   }
 
   // 2. Generate the stream
-  const stream = IS_MOCK_MODE
-    ? generateMockStream(request, ragContext)
-    : generateMockStream(request, ragContext); // Real provider integration is in session 5B
+  const provider = resolveProvider();
 
-  return { stream, ragContext };
+  if (provider === "openai") {
+    return generateOpenAIStream(request, ragContext);
+  }
+
+  if (provider === "anthropic") {
+    return generateAnthropicStream(request, ragContext);
+  }
+
+  // Mock fallback
+  return {
+    stream: generateMockStream(request, ragContext),
+    ragContext,
+  };
+}
+
+/**
+ * Generate a streaming response using OpenAI via Vercel AI SDK.
+ */
+async function generateOpenAIStream(
+  request: ChatRequest,
+  ragContext?: { chunks: RetrievalResult[]; systemPrompt: string }
+): Promise<ChatGenerationResult> {
+  const openai = getOpenAIProvider();
+  if (!openai) {
+    // Race condition: API key was removed between resolveProvider and here
+    return {
+      stream: generateMockStream(request, ragContext),
+      ragContext,
+    };
+  }
+
+  const messages = buildMessages(request, ragContext);
+
+  const result = streamText({
+    model: openai(AI_MODEL),
+    messages,
+    temperature: AI_TEMPERATURE,
+    maxTokens: AI_MAX_TOKENS,
+  });
+
+  // Convert the AI SDK's text stream (AsyncIterable<string>) to a
+  // ReadableStream<Uint8Array> for compatibility with our API route.
+  return {
+    stream: textStreamToReadableStream(result.textStream),
+    ragContext,
+  };
+}
+
+/**
+ * Generate a streaming response using Anthropic via Vercel AI SDK.
+ */
+async function generateAnthropicStream(
+  request: ChatRequest,
+  ragContext?: { chunks: RetrievalResult[]; systemPrompt: string }
+): Promise<ChatGenerationResult> {
+  const anthropic = getAnthropicProvider();
+  if (!anthropic) {
+    return {
+      stream: generateMockStream(request, ragContext),
+      ragContext,
+    };
+  }
+
+  const messages = buildMessages(request, ragContext);
+
+  const result = streamText({
+    model: anthropic(AI_MODEL),
+    messages,
+    temperature: AI_TEMPERATURE,
+    maxTokens: AI_MAX_TOKENS,
+  });
+
+  return {
+    stream: textStreamToReadableStream(result.textStream),
+    ragContext,
+  };
+}
+
+/**
+ * Convert an AsyncIterable<string> (Vercel AI SDK's text stream) into a
+ * ReadableStream<Uint8Array> (Web Streams API) that Next.js Route Handlers
+ * can return directly.
+ */
+function textStreamToReadableStream(
+  iterable: AsyncIterable<string>
+): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const chunk of iterable) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      } catch (err) {
+        controller.error(err);
+      }
+    },
+  });
+}
+
+/**
+ * Build the messages array for the AI SDK, including the RAG system prompt
+ * if available.
+ *
+ * The AI SDK accepts a `system` parameter separately, but for RAG we
+ * include it as the first message to keep the protocol uniform across
+ * providers (some providers handle `system` differently).
+ */
+function buildMessages(
+  request: ChatRequest,
+  ragContext?: { chunks: RetrievalResult[]; systemPrompt: string }
+) {
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> =
+    [];
+
+  if (ragContext) {
+    messages.push({
+      role: "system",
+      content: ragContext.systemPrompt,
+    });
+  }
+
+  for (const m of request.messages) {
+    messages.push({
+      role: m.role,
+      content: m.content,
+    });
+  }
+
+  return messages;
 }
 
 /**
  * Build the system prompt for RAG-augmented chat.
- *
- * The prompt instructs the assistant to:
- * - Use the provided context chunks
- * - Cite which document each piece of info came from
- * - Admit when the answer is not in the context
  */
 function buildRagSystemPrompt(chunks: RetrievalResult[]): string {
   const chunksText = chunks
@@ -133,7 +298,6 @@ function generateMockStream(
   const responses: string[] = [];
 
   if (ragContext && ragContext.chunks.length > 0) {
-    // RAG mode — show what was retrieved
     responses.push(
       `📚 **وضع RAG مفعّل** — تم استرجاع ${ragContext.chunks.length} قطعة من المستندات:\n\n`
     );
@@ -142,10 +306,11 @@ function generateMockStream(
         `**مصدر ${i + 1}**: ${c.documentName} (قطعة ${c.chunkIdx + 1}) — التشابه: ${(c.score * 100).toFixed(1)}%\n`
       );
     });
-    responses.push(`\n**سؤالك**: ${userText.slice(0, 300)}${userText.length > 300 ? "..." : ""}\n\n`);
     responses.push(
-      `هذا رد تجريبي. في الجلسة 5 ب، سيتم استدعاء OpenAI/Anthropic فعليًا ` +
-      `مع السياق المرفق كـ system prompt للإجابة الحقيقية.\n\n`
+      `\n**سؤالك**: ${userText.slice(0, 300)}${userText.length > 300 ? "..." : ""}\n\n`
+    );
+    responses.push(
+      `هذا رد تجريبي (mock mode). لتفعيل الردود الحقيقية، أضف \`OPENAI_API_KEY\` إلى \`.env.local\`.\n\n`
     );
     responses.push(
       `**معاينة السياق المُحقن**:\n\`\`\`\n${ragContext.systemPrompt.slice(0, 400)}...\n\`\`\``
@@ -162,11 +327,10 @@ function generateMockStream(
     responses.push(
       `شكرًا على رسالتك. فهمت أنك تسأل عن:\n\n`,
       `> ${userText.slice(0, 200)}${userText.length > 200 ? "..." : ""}\n\n`,
-      `هذا رد تجريبي من النظام (mock mode). في الجلسة القادمة سيتم:\n`,
-      `1. ربط API حقيقي (OpenAI / Anthropic)\n`,
-      `2. إضافة RAG pipeline للاستدلال على المستندات\n`,
-      `3. دعم المحادثة متعددة المستندات\n\n`,
-      `ترقب الجلسة 5! 🚀`
+      `هذا رد تجريبي (mock mode). لتفعيل الردود الحقيقية:\n`,
+      `1. أضف OPENAI_API_KEY إلى .env.local\n`,
+      `2. أعد تشغيل npm run dev\n\n`,
+      `لتفعيل RAG، ارفع مستندًا من الشريط الجانبي وحدده. 📚`
     );
   }
 
@@ -175,7 +339,6 @@ function generateMockStream(
   return new ReadableStream({
     async start(controller) {
       for (const chunk of responses) {
-        // Simulate streaming delay
         await new Promise((resolve) => setTimeout(resolve, 80));
         controller.enqueue(encoder.encode(chunk));
       }

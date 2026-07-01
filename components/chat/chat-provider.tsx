@@ -1,18 +1,21 @@
 "use client";
 
 import * as React from "react";
+import {
+  loadSelectedDocIds,
+  saveSelectedDocIds,
+} from "@/lib/persistence";
 
 /**
  * ChatProvider — central state shared between ChatContainer and DocumentPanel.
  *
- * Why a context (instead of lifting state to page.tsx)?
- * - Page is a server component; can't hold client state
- * - Avoids prop-drilling through multiple component levels
- * - Single source of truth for selected document IDs + refresh key
+ * Session 5B update: persists selected document IDs to localStorage so
+ * the user's selection survives page refreshes.
  *
  * State managed:
  * - selectedDocumentIds: which documents are active for RAG retrieval
- * - documentRefreshKey: bump to force DocumentPanel to re-fetch (after upload/delete)
+ * - documentRefreshKey: bump to force DocumentPanel to re-fetch
+ * - mobileDrawerOpen: whether the mobile documents drawer is open
  */
 
 interface ChatContextValue {
@@ -20,17 +23,31 @@ interface ChatContextValue {
   selectedDocumentIds: string[];
   /** Toggle a document's selection */
   toggleDocumentSelection: (id: string) => void;
+  /** Set the entire selection (used when loading from storage) */
+  setSelectedDocumentIds: (ids: string[]) => void;
   /** Force document list refresh */
   refreshDocuments: () => void;
   /** Refresh key — DocumentPanel watches this to know when to re-fetch */
   documentRefreshKey: number;
+  /** Mobile drawer state */
+  mobileDrawerOpen: boolean;
+  setMobileDrawerOpen: (open: boolean) => void;
 }
 
 const ChatContext = React.createContext<ChatContextValue | null>(null);
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const [selectedDocumentIds, setSelectedDocumentIds] = React.useState<string[]>([]);
+  // Load initial state from localStorage (lazy initializer)
+  const [selectedDocumentIds, setSelectedDocumentIds] = React.useState<string[]>(
+    () => loadSelectedDocIds()
+  );
   const [documentRefreshKey, setDocumentRefreshKey] = React.useState(0);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false);
+
+  // Persist selected doc IDs whenever they change
+  React.useEffect(() => {
+    saveSelectedDocIds(selectedDocumentIds);
+  }, [selectedDocumentIds]);
 
   const toggleDocumentSelection = React.useCallback((id: string) => {
     setSelectedDocumentIds((prev) =>
@@ -46,10 +63,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     () => ({
       selectedDocumentIds,
       toggleDocumentSelection,
+      setSelectedDocumentIds,
       refreshDocuments,
       documentRefreshKey,
+      mobileDrawerOpen,
+      setMobileDrawerOpen,
     }),
-    [selectedDocumentIds, toggleDocumentSelection, refreshDocuments, documentRefreshKey]
+    [
+      selectedDocumentIds,
+      toggleDocumentSelection,
+      refreshDocuments,
+      documentRefreshKey,
+      mobileDrawerOpen,
+    ]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

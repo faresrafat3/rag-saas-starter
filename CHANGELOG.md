@@ -5,97 +5,99 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-### Added (الجلسة 5 — RAG pipeline + document management)
+### Added (الجلسة 5 ب — Provider integration + persistence + mobile)
 
-#### Fixes from session 4 audit
-- `.eslintrc.json` — extends `next/core-web-vitals` + `next/typescript` + custom rules
-- `next.config.ts` — removed `experimental.serverActions` (was triggering build warning)
-- `CONTEXT.md` — documented the mock streaming nature (large chunks vs tokens)
+#### Fixes from session 5A audit
+- `README.md` — added comprehensive "Limitations & Production Notes" section covering:
+  - MVP limitations (no PDF, TF-IDF demo-only, SQLite local-only, localStorage 5MB cap, no tests)
+  - Security considerations (no auth, no file scanning, no rate limiting)
+  - Performance notes (TF-IDF O(N), better-sqlite3 requires Node runtime)
+- Verified: no remaining `require()` calls in any `.ts` file
 
-#### RAG infrastructure
-- `lib/db.ts` — SQLite layer (better-sqlite3) with schema:
-  - documents (id, name, size, content, mime_type, chunk_count, status, timestamps)
-  - chunks (id, document_id, idx, text) — with cascade delete + indexes
-  - embeddings (chunk_id, vector_json, norm) — TF-IDF vectors
-  - WAL mode + foreign keys enabled
-  - Singleton connection with lazy init
-- `lib/chunking.ts` — sentence-based chunker:
-  - Splits on `.!?؟۔؛` (Arabic + English terminators)
-  - Configurable max/min chunk size + overlap
-  - Hard-splits overly long sentences
-  - Stats utility for debugging
-- `lib/embeddings.ts` — local TF-IDF embeddings:
-  - Arabic + English stopwords (200+ words filtered)
-  - Arabic normalization (diacritics, alef variants, ta marbuta)
-  - Smoothed IDF (log((1+N)/(1+df)) + 1)
-  - Cosine similarity for retrieval
-  - IDF cache with invalidation on doc add/remove
-  - `retrieveRelevantChunks(query, topK, documentIds?)` — top-K retrieval
-- `lib/ai-config.ts` — client-safe constants (split from `ai-provider.ts`)
+#### Provider integration (real AI)
+- `lib/ai-provider.ts` — full Vercel AI SDK integration:
+  - `streamText()` from `ai` package with `@ai-sdk/openai` and `@ai-sdk/anthropic`
+  - Provider resolution: explicit `AI_PROVIDER` env > `OPENAI_API_KEY` > `ANTHROPIC_API_KEY` > mock
+  - Lazy provider instantiation (only when API key present)
+  - `textStreamToReadableStream()` helper — converts AI SDK's `AsyncIterable<string>` to `ReadableStream<Uint8Array>`
+  - Mock fallback when no API key configured (preserves RAG context awareness)
+  - RAG system prompt injected as first message (provider-agnostic)
+  - Builds messages with proper role typing (system/user/assistant)
 
-#### API routes
-- `POST /api/documents/upload` — multipart/form-data file upload
-  - Validates MIME type (.txt/.md/.json/.csv) + size (5MB max)
-  - Reads content → chunks → embeds → stores
-  - Returns document metadata on success
-- `GET /api/documents` — list all documents (excludes content)
-- `GET /api/documents/[id]` — single document + its chunks (preview only)
-- `DELETE /api/documents/[id]` — cascade delete (doc + chunks + embeddings)
-- Modified `POST /api/chat`:
-  - Switched to Node.js runtime (better-sqlite3 requires Node)
-  - Accepts optional `documentIds` for RAG retrieval
-  - Returns `x-rag-context` header with retrieval metadata
-- Modified `lib/ai-provider.ts`:
-  - `generateChatResponse()` now returns `{ stream, ragContext }`
-  - When `documentIds` provided, retrieves top-K chunks via TF-IDF
-  - Builds Arabic system prompt with retrieved context + citation instructions
+#### Persistence (localStorage)
+- `lib/persistence.ts` — client-safe localStorage helpers:
+  - `loadMessages()` / `saveMessages()` — chat history (capped at 100 messages)
+  - `loadSelectedDocIds()` / `saveSelectedDocIds()` — selected documents
+  - Quota-exceeded handling: trims to half-capacity on QuotaExceededError
+  - SSR-safe: detects `typeof window === "undefined"` and returns empty
+  - All operations wrapped in try/catch (best-effort, never throws)
+- `components/chat/chat-provider.tsx` — persists `selectedDocumentIds` on change
+- `components/chat/chat-container.tsx` — loads messages on mount, saves on every change
 
-#### UI components
-- `components/chat/document-panel.tsx` — sidebar for document management:
-  - File upload (button + hidden input)
-  - Document list with selection (click to toggle RAG activation)
-  - Delete per document (with confirmation)
-  - Error banner with dismiss button
-  - Empty state
-  - Footer showing active document count
-- `components/chat/chat-provider.tsx` — React context for shared state:
-  - `selectedDocumentIds` (multi-doc selection)
-  - `toggleDocumentSelection(id)`
-  - `documentRefreshKey` (forces DocumentPanel to refetch)
-- Modified `app/page.tsx`:
-  - Desktop layout: 320px sidebar (DocumentPanel) + chat
-  - Mobile layout: chat only (documents panel toggle TODO session 5B)
-- Modified `components/chat/chat-container.tsx`:
-  - Reads `selectedDocumentIds` from context
-  - Includes `documentIds` in `/api/chat` request body
-  - User message stores `documentIds` for reference
+#### Mobile responsive
+- `components/chat/mobile-doc-drawer.tsx` — slide-out drawer for documents panel:
+  - Pure CSS transitions (no Radix Sheet dependency)
+  - Overlay with click-to-close
+  - Escape key to close
+  - Body scroll lock when open
+  - 85vw width, max 384px (max-w-sm)
+- `components/chat/chat-header.tsx` — added mobile toggle button:
+  - Visible only on screens < md breakpoint
+  - PanelRight icon with notification dot when documents are selected
+  - Removed unused `NEXT_PUBLIC_AI_PROVIDER_LABEL` env reference
+- `app/page.tsx` — renders MobileDocDrawer (mobile-only)
 
-#### Configuration
-- `better-sqlite3` dependency added
-- `@types/better-sqlite3` dev dependency added
-- `.gitignore` — added `data/` (SQLite db + WAL files)
+#### Documentation
+- `README.md` — full rewrite with:
+  - Features list (implemented vs coming)
+  - Tech stack table
+  - Quick Start with first steps guide
+  - "How It Works" section with RAG pipeline diagram
+  - Provider modes table
+  - Limitations & Production Notes (3 subsections)
+  - Project structure (full tree)
+  - Acknowledgments with attribution
 
 ### Verified
-- ✅ TypeScript: no errors (`tsc --noEmit`)
-- ✅ Production build: success (6 routes)
-- ✅ Document upload: HTTP 201 with chunk metadata
-- ✅ Document list: HTTP 200
-- ✅ Document delete: cascade works
-- ✅ RAG retrieval: TF-IDF scoring works (11.8% similarity on test query)
-- ✅ Chat with RAG: returns context-aware mock response + x-rag-context header
-- ✅ Chat without RAG: falls back to original mock behavior
-- ✅ Arabic + RTL: all UI strings and responses in Arabic
+- ✅ TypeScript: no errors
+- ✅ Production build: 6 routes
+- ✅ Dev server: HTTP 200 on all endpoints
+- ✅ Mock mode chat: works (with and without RAG)
+- ✅ RAG retrieval: works (11.8% similarity on test)
+- ✅ Provider resolution: detects mock mode correctly
+- ✅ Headers: `x-ai-provider` and `x-rag-context` present
+- ✅ SQLite persistence: documents survive restart
+- ✅ Mobile drawer: renders only on small screens
 
 ### Changed
-- `app/api/chat/route.ts` — switched from edge runtime to Node.js runtime (better-sqlite3 requirement)
-- `lib/ai-provider.ts` — `generateChatResponse()` return type changed from `ReadableStream` to `{ stream, ragContext }`
-- `components/chat/chat-header.tsx` — imports `IS_MOCK_MODE` from `lib/ai-config` (not `ai-provider`) for client safety
+- `lib/ai-provider.ts` — `generateChatResponse()` now uses real `streamText()` when API key is present (was: mock only)
+- `components/chat/chat-provider.tsx` — added `setSelectedDocumentIds`, `mobileDrawerOpen`, `setMobileDrawerOpen` to context value
+- `components/chat/chat-container.tsx` — initial state loaded from `loadMessages()` (was: empty array)
 
 ### Fixed
-- (from session 4 audit) `.eslintrc.json` added — no longer relying on next defaults
-- (from session 4 audit) `experimental.serverActions` removed — no more build warning
-- (from session 4 audit) `tsconfig.tsbuildinfo` added to `.gitignore`
-- Client/server module split — `lib/ai-config.ts` (client-safe) vs `lib/ai-provider.ts` (server-only)
+- (from session 5A audit) README now documents all limitations honestly
+- (from session 5A audit) No remaining `require()` calls
+- (from session 5A audit) Mobile layout now has functional drawer toggle (was: "TODO session 5B")
+
+## [0.2.0] - 2026-06-29 (Session 5A)
+
+### Added
+- SQLite storage (better-sqlite3) — documents + chunks + embeddings
+- Sentence-based chunker (Arabic + English terminators)
+- Local TF-IDF embeddings (zero-dependency, works offline)
+- Document upload API (POST /api/documents/upload)
+- Document management API (GET/DELETE /api/documents, /api/documents/[id])
+- RAG-augmented chat (TF-IDF retrieval + context injection)
+- Document panel UI (sidebar with upload/select/delete)
+- ChatContext for shared state (selectedDocumentIds)
+- Multi-document selection support (UI + API)
+- Client/server module split (ai-config vs ai-provider)
+
+### Fixed
+- `.eslintrc.json` added (from session 4 audit)
+- `experimental.serverActions` removed from next.config.ts
+- `tsconfig.tsbuildinfo` added to .gitignore
+- `CONTEXT.md` documented mock streaming nature
 
 ## [0.1.0] - 2026-06-29 (Session 4)
 
