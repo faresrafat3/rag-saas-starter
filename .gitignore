@@ -57,3 +57,4 @@ Thumbs.db
 # Local-only uploads (during dev)
 uploads/
 tsconfig.tsbuildinfo
+data/

@@ -24,13 +24,26 @@
 5. ✅ Dark mode toggle
 6. ✅ API route بسيط (mock streaming response)
 
-## 📋 Features المتبقية (الجلسة 5)
+## 📋 Features المنفذة (الجلسة 5)
 
-- [ ] RAG pipeline فعلي (document upload + chunking + embeddings)
-- [ ] Multi-document chat (context across documents)
-- [ ] Document management UI (list, delete, rename)
-- [ ] Chat history persistence (localStorage أو Supabase)
-- [ ] Provider abstraction (Vercel AI SDK pattern كامل)
+1. ✅ SQLite storage (better-sqlite3) — documents + chunks + embeddings
+2. ✅ Sentence-based chunker (Arabic + English terminators)
+3. ✅ Local TF-IDF embeddings (zero-dependency, works offline)
+4. ✅ Document upload API (POST /api/documents/upload)
+5. ✅ Document management API (GET/DELETE /api/documents, /api/documents/[id])
+6. ✅ RAG-augmented chat (TF-IDF retrieval + context injection)
+7. ✅ Document panel UI (sidebar with upload/select/delete)
+8. ✅ ChatContext for shared state (selectedDocumentIds)
+9. ✅ Multi-document selection support (UI + API)
+10. ✅ Client/server module split (ai-config vs ai-provider)
+
+## 📋 Features المتبقية (الجلسة 5 ب)
+
+- [ ] Provider integration حقيقي (OpenAI / Anthropic) بدل mock
+- [ ] Mobile responsive: toggle button for documents panel
+- [ ] Chat history persistence (localStorage)
+- [ ] Unit tests (chunker, embeddings, API routes)
+- [ ] PDF parsing (pdf-parse library)
 
 ## 📋 Features المتبقية (الجلسة 6)
 
@@ -38,7 +51,7 @@
 - [ ] README احترافي (اتباع portfolio-readme-template.md)
 - [ ] Screenshots في `docs/screenshots/`
 - [ ] فيديو demo 60 ثانية
-- [ ] Topics + description على GitHub
+- [ ] Topics + description على GitHub (تحديث نهائي)
 
 ## 🐛 Bugs معروفة
 
@@ -59,3 +72,22 @@
 - لو لأ، استخدم mock response pattern (موجود في `app/api/chat/route.ts`)
 - كل API routes لازم ترجع streaming responses (Vercel AI SDK pattern)
 - **مهم**: Arabic + RTL لازم يكونوا default من اليوم الأول، مش feature متأخر
+
+## 🧪 ملاحظة على الـ Mock Streaming (وثّقت في الجلسة 5)
+
+الـ mock في `lib/ai-provider.ts` بيرجع **chunks كبيرة** (جمل كاملة) بدل **tokens صغيرة**.
+
+**السبب**: عشان الـ demo يكون سريع + يستقر الـ UI بسرعة في الاختبار.
+
+**في الـ production** (لو فيه OpenAI API key):
+- هنستخدم Vercel AI SDK `streamText()` — بيرجع tokens حقيقية
+- الـ UI شغّال بالفعل مع streaming (الـ `ChatContainer` بيـ read chunks من أي حجم)
+
+**لو عاوز تجرب الـ realistic streaming**: عدّل `setTimeout(resolve, 80)` في `lib/ai-provider.ts` لـ `setTimeout(resolve, 30)` وحط كلمات بدل جمل.
+
+## 📦 الـ Dependencies المضافة في الجلسة 5
+
+- `better-sqlite3` — للـ SQLite storage (documents + embeddings)
+- `@types/better-sqlite3` — types
+
+**ملاحظة**: `better-sqlite3` مش شغّال على edge runtime. routes اللي بتستخدمه لازم `runtime = 'nodejs'`.

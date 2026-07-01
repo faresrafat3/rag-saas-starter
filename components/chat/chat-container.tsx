@@ -5,18 +5,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessageItem, TypingIndicator } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { EmptyState } from "./empty-state";
+import { useChatContext } from "./chat-provider";
 import { generateId } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/types";
 
 /**
  * Main chat container — manages state, streaming, and scroll behavior.
  *
- * Architecture note (Session 4):
- * - For now, we use the fetch API directly to consume the streaming response.
- * - In Session 5, we'll switch to the Vercel AI SDK's `useChat` hook,
- *   which provides better abstractions for tool calls, RAG context, etc.
+ * Session 5 update: integrates with ChatContext to read selected document IDs
+ * and includes them in the chat request (enabling RAG retrieval on the server).
  */
 export function ChatContainer() {
+  const { selectedDocumentIds } = useChatContext();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,113 +49,118 @@ export function ChatContainer() {
     }
   }, []);
 
-  const handleSend = useCallback(async (content: string) => {
-    setError(null);
+  const handleSend = useCallback(
+    async (content: string) => {
+      setError(null);
 
-    const userMessage: ChatMessage = {
-      id: generateId("msg"),
-      role: "user",
-      content,
-      createdAt: Date.now(),
-    };
+      const userMessage: ChatMessage = {
+        id: generateId("msg"),
+        role: "user",
+        content,
+        createdAt: Date.now(),
+        documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+      };
 
-    const assistantMessage: ChatMessage = {
-      id: generateId("msg"),
-      role: "assistant",
-      content: "",
-      createdAt: Date.now(),
-      isStreaming: true,
-    };
+      const assistantMessage: ChatMessage = {
+        id: generateId("msg"),
+        role: "assistant",
+        content: "",
+        createdAt: Date.now(),
+        isStreaming: true,
+      };
 
-    const newMessages = [...messages, userMessage];
-    setMessages([...newMessages, assistantMessage]);
-    setIsStreaming(true);
+      const newMessages = [...messages, userMessage];
+      setMessages([...newMessages, assistantMessage]);
+      setIsStreaming(true);
 
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-        signal: controller.signal,
-      });
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            messages: newMessages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            // Include selected documents for RAG retrieval
+            documentIds:
+              selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+          }),
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(
-          `HTTP ${response.status}: ${errText.slice(0, 200)}`
-        );
-      }
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(
+            `HTTP ${response.status}: ${errText.slice(0, 200)}`
+          );
+        }
 
-      if (!response.body) {
-        throw new Error("Response body is null");
-      }
+        if (!response.body) {
+          throw new Error("Response body is null");
+        }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        accumulated += chunk;
+          const chunk = decoder.decode(value, { stream: true });
+          accumulated += chunk;
 
-        // Update the assistant message in place
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessage.id
-              ? { ...m, content: accumulated, isStreaming: true }
-              : m
-          )
-        );
-      }
+          // Update the assistant message in place
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessage.id
+                ? { ...m, content: accumulated, isStreaming: true }
+                : m
+            )
+          );
+        }
 
-      // Finalize: mark as not streaming
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMessage.id ? { ...m, isStreaming: false } : m
-        )
-      );
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        // User cancelled — mark as not streaming, keep partial content
+        // Finalize: mark as not streaming
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id ? { ...m, isStreaming: false } : m
           )
         );
-      } else {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        setError(message);
-        // Remove the empty assistant message if it has no content
-        setMessages((prev) =>
-          prev
-            .filter(
-              (m) =>
-                m.id !== assistantMessage.id ||
-                m.content.length > 0
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          // User cancelled — mark as not streaming, keep partial content
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessage.id ? { ...m, isStreaming: false } : m
             )
-            .map((m) =>
-              m.id === assistantMessage.id
-                ? { ...m, isStreaming: false }
-                : m
-            )
-        );
+          );
+        } else {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          setError(message);
+          setMessages((prev) =>
+            prev
+              .filter(
+                (m) =>
+                  m.id !== assistantMessage.id || m.content.length > 0
+              )
+              .map((m) =>
+                m.id === assistantMessage.id
+                  ? { ...m, isStreaming: false }
+                  : m
+              )
+          );
+        }
+      } finally {
+        setIsStreaming(false);
+        abortControllerRef.current = null;
       }
-    } finally {
-      setIsStreaming(false);
-      abortControllerRef.current = null;
-    }
-  }, [messages]);
+    },
+    [messages, selectedDocumentIds]
+  );
 
   const handleStop = useCallback(() => {
     abortControllerRef.current?.abort();

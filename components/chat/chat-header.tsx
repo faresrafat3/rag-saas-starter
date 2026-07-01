@@ -3,7 +3,7 @@
 import { Sparkles, Github, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
-import { IS_MOCK_MODE } from "@/lib/ai-provider";
+import { IS_MOCK_MODE } from "@/lib/ai-config";
 
 export function ChatHeader() {
   return (
