@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   loadSelectedDocIds,
   saveSelectedDocIds,
+  clearMessages,
 } from "@/lib/persistence";
 
 /**
@@ -12,10 +13,10 @@ import {
  * Session 5B update: persists selected document IDs to localStorage so
  * the user's selection survives page refreshes.
  *
- * State managed:
- * - selectedDocumentIds: which documents are active for RAG retrieval
- * - documentRefreshKey: bump to force DocumentPanel to re-fetch
- * - mobileDrawerOpen: whether the mobile documents drawer is open
+ * Session 5C update:
+ * - Added `clearChat` action (clears messages + localStorage)
+ * - Added `hasMessages` flag for the header to show/hide clear button
+ * - Added `setMessages` for external control
  */
 
 interface ChatContextValue {
@@ -32,6 +33,16 @@ interface ChatContextValue {
   /** Mobile drawer state */
   mobileDrawerOpen: boolean;
   setMobileDrawerOpen: (open: boolean) => void;
+  /** Messages (lifted up so the header can read hasMessages + clearChat) */
+  messages: import("@/lib/types").ChatMessage[];
+  setMessages: (
+    updater: import("@/lib/types").ChatMessage[] |
+    ((prev: import("@/lib/types").ChatMessage[]) => import("@/lib/types").ChatMessage[])
+  ) => void;
+  /** Clear all messages + localStorage */
+  clearChat: () => void;
+  /** Whether there are any messages (for header clear button visibility) */
+  hasMessages: boolean;
 }
 
 const ChatContext = React.createContext<ChatContextValue | null>(null);
@@ -43,11 +54,32 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
   const [documentRefreshKey, setDocumentRefreshKey] = React.useState(0);
   const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false);
+  const [messages, setMessagesState] = React.useState<
+    import("@/lib/types").ChatMessage[]
+  >([]);
 
   // Persist selected doc IDs whenever they change
   React.useEffect(() => {
     saveSelectedDocIds(selectedDocumentIds);
   }, [selectedDocumentIds]);
+
+  const setMessages = React.useCallback(
+    (
+      updater:
+        | import("@/lib/types").ChatMessage[]
+        | ((
+            prev: import("@/lib/types").ChatMessage[]
+          ) => import("@/lib/types").ChatMessage[])
+    ) => {
+      setMessagesState(updater);
+    },
+    []
+  );
+
+  const clearChat = React.useCallback(() => {
+    setMessagesState([]);
+    clearMessages();
+  }, []);
 
   const toggleDocumentSelection = React.useCallback((id: string) => {
     setSelectedDocumentIds((prev) =>
@@ -59,6 +91,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setDocumentRefreshKey((k) => k + 1);
   }, []);
 
+  const hasMessages = messages.length > 0;
+
   const value = React.useMemo(
     () => ({
       selectedDocumentIds,
@@ -68,6 +102,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       documentRefreshKey,
       mobileDrawerOpen,
       setMobileDrawerOpen,
+      messages,
+      setMessages,
+      clearChat,
+      hasMessages,
     }),
     [
       selectedDocumentIds,
@@ -75,6 +113,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       refreshDocuments,
       documentRefreshKey,
       mobileDrawerOpen,
+      messages,
+      setMessages,
+      clearChat,
+      hasMessages,
     ]
   );
 

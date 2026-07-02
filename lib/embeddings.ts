@@ -24,17 +24,17 @@ import { getAllEmbeddings, getAllChunksWithDocuments, getEmbeddingsForDocuments 
 
 // === Stopwords ===
 
-const ARABIC_STOPWORDS = new Set([
-  "في", "من", "على", "إلى", "عن", "مع", "هذا", "هذه", "ذلك", "تلك",
+export const ARABIC_STOPWORDS = new Set([
+  "في", "من", "على", "علي", "إلى", "الي", "الى", "عن", "مع", "هذا", "هذه", "ذلك", "تلك",
   "التي", "الذي", "الذين", "اللاتي", "اللائي", "هو", "هي", "هم", "هن",
-  "نحن", "أنا", "أنت", "أنتم", "كان", "كانت", "يكون", "تكون", "قد",
-  "لقد", "كما", "حيث", "إذا", "عند", "عندما", "بعد", "قبل", "خلال",
-  "بين", "أو", "أم", "ثم", "لكن", "بل", "حتى", "إلا", "لا", "لم",
-  "لن", "إن", "أن", "كي", "لذلك", "بسبب", "حول", "نحو", "دون", "غير",
-  "كل", "بعض", "كثير", "قليل", "جدا", "فقط", "أيضا", "دائما", "أبدا",
+  "نحن", "أنا", "انا", "أنت", "انت", "أنتم", "انتم", "كان", "كانت", "يكون", "تكون", "قد",
+  "لقد", "كما", "حيث", "إذا", "اذا", "عند", "عندما", "بعد", "قبل", "خلال",
+  "بين", "أو", "او", "أم", "ام", "ثم", "لكن", "بل", "حتى", "إلا", "الا", "لا", "لم",
+  "لن", "إن", "ان", "أن", "ان", "كي", "لذلك", "بسبب", "حول", "نحو", "دون", "غير",
+  "كل", "بعض", "كثير", "قليل", "جدا", "فقط", "أيضا", "ايضا", "دائما", "أبدا", "ابدا",
 ]);
 
-const ENGLISH_STOPWORDS = new Set([
+export const ENGLISH_STOPWORDS = new Set([
   "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
   "of", "with", "by", "from", "up", "about", "into", "through", "during",
   "before", "after", "above", "below", "between", "this", "that", "these",
@@ -67,8 +67,14 @@ export function tokenize(text: string): string[] {
     .replace(/ى/g, "ي")
     .replace(/ة/g, "ه");
 
-  // Tokenize: split on non-word characters (preserves Arabic + English + digits)
-  const tokens = normalized.match(/[\u0600-\u06FFa-zA-Z0-9]+/g) ?? [];
+  // Tokenize: split on non-word characters (preserves Arabic letters + English + digits)
+  // Note: \u0600-\u06FF includes Arabic punctuation (؟ ؛ ، etc.) which we want to
+  // split on, so we use a narrower range that excludes them.
+  // Arabic letters: \u0621-\u064A (basic Arabic), \u0660-\u0669 (Arabic digits),
+  // \u066E-\u06D2 (extended Arabic letters)
+  const tokens = normalized.match(
+    /[\u0621-\u064A\u0660-\u0669\u066E-\u06D2a-zA-Z0-9]+/g
+  ) ?? [];
 
   // Filter: stopwords + length >= 2
   return tokens.filter(
@@ -121,7 +127,15 @@ let idfCache: { idf: Record<string, number>; totalChunks: number } | null = null
 function computeIdf(): { idf: Record<string, number>; totalChunks: number } {
   if (idfCache) return idfCache;
 
-  const allChunks = getAllChunksWithDocuments();
+  let allChunks: Array<{ text: string }> = [];
+  try {
+    allChunks = getAllChunksWithDocuments();
+  } catch {
+    // Database not available (e.g., during unit tests or first run before init)
+    // Fall back to empty IDF — embed() will use defaultIdf for all terms.
+    allChunks = [];
+  }
+
   const N = allChunks.length;
   const df: Record<string, number> = {};
 
@@ -162,13 +176,17 @@ export function invalidateIdfCache(): void {
 export function embed(
   text: string
 ): { vector: Record<string, number>; norm: number } {
-  const { idf } = computeIdf();
+  const { idf, totalChunks } = computeIdf();
   const tokens = tokenize(text);
   const termCounts = computeTermCounts(tokens);
 
+  // If after stopword filtering there are no tokens, return zero vector
+  if (Object.keys(termCounts).length === 0) {
+    return { vector: {}, norm: 0 };
+  }
+
   // Default IDF for unseen terms = log((1+N)/(1+0)) + 1 = log(1+N) + 1
   // (gives some weight to unseen terms so they can still match)
-  const { totalChunks } = computeIdf();
   const defaultIdf = Math.log(1 + totalChunks) + 1;
 
   const vector: Record<string, number> = {};

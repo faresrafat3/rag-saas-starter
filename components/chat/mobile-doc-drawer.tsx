@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocumentPanel } from "./document-panel";
@@ -14,9 +14,12 @@ import { cn } from "@/lib/utils";
  * Controlled by `mobileDrawerOpen` from ChatContext.
  *
  * Implementation note: pure CSS transitions (no Radix Sheet dependency).
+ * Includes focus trap for accessibility (keyboard users).
  */
 export function MobileDocDrawer() {
   const { mobileDrawerOpen, setMobileDrawerOpen } = useChatContext();
+  const drawerRef = useRef<HTMLElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   // Close on Escape key
   useEffect(() => {
@@ -38,6 +41,51 @@ export function MobileDocDrawer() {
     };
   }, [mobileDrawerOpen]);
 
+  // Focus trap: save previous focus, move focus into drawer, restore on close
+  useEffect(() => {
+    if (mobileDrawerOpen) {
+      // Save the currently focused element so we can restore it on close
+      previouslyFocusedRef.current = document.activeElement as HTMLElement;
+
+      // Move focus into the drawer
+      const focusable = drawerRef.current?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      focusable?.focus();
+    } else {
+      // Restore focus to the previously focused element
+      previouslyFocusedRef.current?.focus();
+    }
+  }, [mobileDrawerOpen]);
+
+  // Trap Tab key within the drawer
+  useEffect(() => {
+    if (!mobileDrawerOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const drawer = drawerRef.current;
+      if (!drawer) return;
+
+      const focusables = drawer.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [mobileDrawerOpen]);
+
   return (
     <>
       {/* Overlay */}
@@ -52,6 +100,7 @@ export function MobileDocDrawer() {
 
       {/* Drawer */}
       <aside
+        ref={drawerRef}
         className={cn(
           "md:hidden fixed inset-y-0 right-0 z-50 w-[85vw] max-w-sm",
           "bg-background shadow-xl border-s",
@@ -74,7 +123,6 @@ export function MobileDocDrawer() {
           </Button>
         </div>
         <div className="h-[calc(100%-3.5rem)]">
-          {/* DocumentPanel already handles its own scroll area */}
           <DocumentPanel />
         </div>
       </aside>

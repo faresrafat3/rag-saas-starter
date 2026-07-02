@@ -1,13 +1,14 @@
 "use client";
 
-import { Sparkles, Github, FileText, PanelRight } from "lucide-react";
+import { Sparkles, Github, FileText, PanelRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { useChatContext } from "./chat-provider";
 import { IS_MOCK_MODE } from "@/lib/ai-config";
 
 export function ChatHeader() {
-  const { setMobileDrawerOpen, selectedDocumentIds } = useChatContext();
+  const { setMobileDrawerOpen, selectedDocumentIds, clearChat, hasMessages } =
+    useChatContext();
 
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -35,6 +36,23 @@ export function ChatHeader() {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Clear chat (only visible when there are messages) */}
+          {hasMessages && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (confirm("هل تريد مسح جميع الرسائل؟")) {
+                  clearChat();
+                }
+              }}
+              aria-label="مسح المحادثة"
+              title="مسح المحادثة"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+
           {/* Mobile: open documents drawer */}
           <Button
             variant="ghost"

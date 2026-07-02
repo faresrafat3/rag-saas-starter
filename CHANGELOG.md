@@ -5,79 +5,98 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-### Added (الجلسة 5 ب — Provider integration + persistence + mobile)
+### Added (الجلسة 5 ج — Tests + Polish fixes)
 
-#### Fixes from session 5A audit
-- `README.md` — added comprehensive "Limitations & Production Notes" section covering:
-  - MVP limitations (no PDF, TF-IDF demo-only, SQLite local-only, localStorage 5MB cap, no tests)
-  - Security considerations (no auth, no file scanning, no rate limiting)
-  - Performance notes (TF-IDF O(N), better-sqlite3 requires Node runtime)
-- Verified: no remaining `require()` calls in any `.ts` file
+#### Fixes from session 5B audit
+- **Error handling for API errors**: `textStreamToReadableStream()` now catches stream errors and emits user-friendly Arabic messages (401, 429, 5xx, network errors) instead of leaking raw error to the client
+- **Focus trap for mobile drawer**: `mobile-doc-drawer.tsx` now saves/restores focus, moves focus into drawer on open, traps Tab key within drawer (accessibility)
+- **"Clear chat" button**: Added to `chat-header.tsx` (Trash2 icon, visible only when there are messages, with confirmation)
+- **Don't save streaming messages**: `chat-container.tsx` now skips localStorage save while streaming or while any message has `isStreaming: true`
+- **Loading state**: Added `isLoading` state to `chat-container.tsx` — shows "جارٍ التحميل..." instead of empty state during initial localStorage load
 
-#### Provider integration (real AI)
-- `lib/ai-provider.ts` — full Vercel AI SDK integration:
-  - `streamText()` from `ai` package with `@ai-sdk/openai` and `@ai-sdk/anthropic`
-  - Provider resolution: explicit `AI_PROVIDER` env > `OPENAI_API_KEY` > `ANTHROPIC_API_KEY` > mock
-  - Lazy provider instantiation (only when API key present)
-  - `textStreamToReadableStream()` helper — converts AI SDK's `AsyncIterable<string>` to `ReadableStream<Uint8Array>`
-  - Mock fallback when no API key configured (preserves RAG context awareness)
-  - RAG system prompt injected as first message (provider-agnostic)
-  - Builds messages with proper role typing (system/user/assistant)
+#### Bug fixes
+- **`chunkText` now preserves tiny single chunks**: Previously, text shorter than `minChunkSize` (default 100) returned an empty array. Now the final flush accepts the chunk if it's the only one (prevents data loss).
+- **Arabic stopwords normalization**: Added normalized variants (`علي` for `على`, `الي` for `إلى`, etc.) so stopwords are correctly filtered after alef/ya normalization
+- **Tokenizer regex fix**: Narrowed Arabic Unicode range from `\u0600-\u06FF` to `\u0621-\u064A\u0660-\u0669\u066E-\u06D2` to exclude Arabic punctuation (؟ ؛ ،) from tokens
 
-#### Persistence (localStorage)
-- `lib/persistence.ts` — client-safe localStorage helpers:
-  - `loadMessages()` / `saveMessages()` — chat history (capped at 100 messages)
-  - `loadSelectedDocIds()` / `saveSelectedDocIds()` — selected documents
-  - Quota-exceeded handling: trims to half-capacity on QuotaExceededError
-  - SSR-safe: detects `typeof window === "undefined"` and returns empty
-  - All operations wrapped in try/catch (best-effort, never throws)
-- `components/chat/chat-provider.tsx` — persists `selectedDocumentIds` on change
-- `components/chat/chat-container.tsx` — loads messages on mount, saves on every change
+#### Test infrastructure
+- **Vitest** installed (`vitest` + `@vitest/coverage-v8`)
+- `vitest.config.ts` — Node environment, path alias `@`, coverage config
+- `package.json` — added `test`, `test:watch`, `test:coverage` scripts; bumped version to 0.3.0
 
-#### Mobile responsive
-- `components/chat/mobile-doc-drawer.tsx` — slide-out drawer for documents panel:
-  - Pure CSS transitions (no Radix Sheet dependency)
-  - Overlay with click-to-close
-  - Escape key to close
-  - Body scroll lock when open
-  - 85vw width, max 384px (max-w-sm)
-- `components/chat/chat-header.tsx` — added mobile toggle button:
-  - Visible only on screens < md breakpoint
-  - PanelRight icon with notification dot when documents are selected
-  - Removed unused `NEXT_PUBLIC_AI_PROVIDER_LABEL` env reference
-- `app/page.tsx` — renders MobileDocDrawer (mobile-only)
+#### Unit tests (71 tests, all passing)
+- `lib/chunking.test.ts` (22 tests):
+  - Basic splitting (empty, short, single Arabic sentence)
+  - English terminators (`.`, `!`, `?`)
+  - Arabic terminators (`.`, `؟`, `؛`)
+  - Mixed Arabic + English
+  - Chunk size constraints (maxChunkSize, minChunkSize, hard-split oversized)
+  - Overlap behavior
+  - Sequential indices
+  - Edge cases (only terminators, multiple spaces, newlines)
+  - `getChunkStats` utility
+- `lib/embeddings.test.ts` (30 tests):
+  - Tokenization (English, Arabic, mixed)
+  - Normalization (lowercase, diacritics, alef variants, ya, ta marbuta, tatweel)
+  - Stopwords filtering (English + Arabic + length-based)
+  - Special characters (punctuation, numbers, mixed)
+  - `embed()` (zero norm for stopwords-only, identical vectors for identical text)
+  - `cosineSimilarity()` (identical, disjoint, zero norm, partial overlap)
+- `lib/persistence.test.ts` (19 tests):
+  - `loadMessages` (empty, valid, invalid JSON, non-array, invalid objects)
+  - `saveMessages` (basic, truncate at MAX_MESSAGES=100, empty array)
+  - `clearMessages`
+  - `loadSelectedDocIds` / `saveSelectedDocIds`
+  - SSR safety (window undefined)
 
-#### Documentation
-- `README.md` — full rewrite with:
-  - Features list (implemented vs coming)
-  - Tech stack table
-  - Quick Start with first steps guide
-  - "How It Works" section with RAG pipeline diagram
-  - Provider modes table
-  - Limitations & Production Notes (3 subsections)
-  - Project structure (full tree)
-  - Acknowledgments with attribution
+#### Refactors
+- `lib/embeddings.ts`:
+  - `computeIdf()` now wrapped in try/catch — falls back to empty IDF if DB unavailable (enables unit testing without SQLite)
+  - `embed()` returns zero vector if all tokens are filtered as stopwords (previously returned non-zero with default IDF)
+  - Exported `ARABIC_STOPWORDS` and `ENGLISH_STOPWORDS` for test access
+- `components/chat/chat-provider.tsx`:
+  - Lifted `messages` + `setMessages` to context (so header can read `hasMessages` + `clearChat`)
+  - Added `clearChat` action (clears messages + localStorage)
+  - Added `hasMessages` flag
 
 ### Verified
 - ✅ TypeScript: no errors
 - ✅ Production build: 6 routes
-- ✅ Dev server: HTTP 200 on all endpoints
-- ✅ Mock mode chat: works (with and without RAG)
-- ✅ RAG retrieval: works (11.8% similarity on test)
-- ✅ Provider resolution: detects mock mode correctly
-- ✅ Headers: `x-ai-provider` and `x-rag-context` present
-- ✅ SQLite persistence: documents survive restart
-- ✅ Mobile drawer: renders only on small screens
+- ✅ All 71 tests pass
+- ✅ Test coverage: chunking + embeddings + persistence fully covered
 
 ### Changed
-- `lib/ai-provider.ts` — `generateChatResponse()` now uses real `streamText()` when API key is present (was: mock only)
-- `components/chat/chat-provider.tsx` — added `setSelectedDocumentIds`, `mobileDrawerOpen`, `setMobileDrawerOpen` to context value
-- `components/chat/chat-container.tsx` — initial state loaded from `loadMessages()` (was: empty array)
+- `lib/ai-provider.ts` — `textStreamToReadableStream()` now emits error messages instead of calling `controller.error()`
+- `components/chat/mobile-doc-drawer.tsx` — added focus trap + focus restore
+- `components/chat/chat-header.tsx` — added Clear chat button
+- `components/chat/chat-container.tsx` — uses context messages, loading state, skip-save-during-streaming
+- `lib/chunking.ts` — `flush()` accepts `isFinal` param to preserve single tiny chunks
+- `lib/embeddings.ts` — narrowed tokenizer regex, added stopword variants, made `computeIdf` DB-optional
 
 ### Fixed
-- (from session 5A audit) README now documents all limitations honestly
-- (from session 5A audit) No remaining `require()` calls
-- (from session 5A audit) Mobile layout now has functional drawer toggle (was: "TODO session 5B")
+- (from session 5B audit) API errors now produce user-friendly Arabic messages
+- (from session 5B audit) Mobile drawer has focus trap (accessibility)
+- (from session 5B audit) Clear chat button added
+- (from session 5B audit) Streaming messages not saved to localStorage
+- (from session 5B audit) Loading state prevents flash of empty state
+- (bug) `chunkText` no longer drops short text
+- (bug) Arabic stopwords now match after normalization
+- (bug) Tokenizer no longer includes Arabic punctuation in tokens
+
+## [0.3.0] - 2026-06-29 (Session 5B)
+
+### Added
+- Vercel AI SDK `streamText()` integration with OpenAI/Anthropic providers
+- Mock fallback when no API key configured
+- `lib/persistence.ts` — localStorage helpers (messages + selected docs)
+- `components/chat/mobile-doc-drawer.tsx` — pure CSS drawer
+- Mobile toggle button in chat header
+- README: comprehensive Limitations & Production Notes section
+
+### Fixed
+- README now documents all limitations honestly
+- No remaining `require()` calls
+- Mobile layout has functional drawer toggle
 
 ## [0.2.0] - 2026-06-29 (Session 5A)
 

@@ -205,6 +205,10 @@ async function generateAnthropicStream(
  * Convert an AsyncIterable<string> (Vercel AI SDK's text stream) into a
  * ReadableStream<Uint8Array> (Web Streams API) that Next.js Route Handlers
  * can return directly.
+ *
+ * Includes error handling: if the underlying stream throws (e.g., API key
+ * invalid, rate limit exceeded), we emit a user-friendly Arabic error
+ * message before closing the stream.
  */
 function textStreamToReadableStream(
   iterable: AsyncIterable<string>
@@ -218,10 +222,38 @@ function textStreamToReadableStream(
         }
         controller.close();
       } catch (err) {
-        controller.error(err);
+        // Emit a user-friendly error message before closing
+        const errorMsg = formatStreamError(err);
+        controller.enqueue(encoder.encode(errorMsg));
+        controller.close();
       }
     },
   });
+}
+
+/**
+ * Format a streaming error into a user-friendly Arabic message.
+ * Inspects common API error patterns (OpenAI, Anthropic, network).
+ */
+function formatStreamError(err: unknown): string {
+  const errorStr = err instanceof Error ? err.message : String(err);
+
+  // Common patterns
+  if (errorStr.includes("401") || errorStr.toLowerCase().includes("invalid api key")) {
+    return "\n\n⚠️ **خطأ**: مفتاح API غير صحيح. تحقق من `OPENAI_API_KEY` في ملف `.env.local`.";
+  }
+  if (errorStr.includes("429") || errorStr.toLowerCase().includes("rate limit")) {
+    return "\n\n⚠️ **خطأ**: تم تجاوز حد الطلبات. حاول مرة أخرى بعد قليل.";
+  }
+  if (errorStr.includes("500") || errorStr.includes("502") || errorStr.includes("503")) {
+    return "\n\n⚠️ **خطأ**: خادم الـ AI غير متاح حاليًا. حاول مرة أخرى لاحقًا.";
+  }
+  if (errorStr.toLowerCase().includes("network") || errorStr.toLowerCase().includes("fetch")) {
+    return "\n\n⚠️ **خطأ**: فشل الاتصال بالخادم. تحقق من اتصالك بالإنترنت.";
+  }
+
+  // Generic fallback — don't leak the raw error to the client
+  return `\n\n⚠️ **خطأ**: حدث خطأ غير متوقع أثناء توليد الرد.`;
 }
 
 /**

@@ -47,9 +47,13 @@ export function loadMessages(): ChatMessage[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ChatMessage[];
     if (!Array.isArray(parsed)) return [];
-    // Basic validation
+    // Basic validation — filter out non-objects + invalid id/content
     return parsed.filter(
-      (m) => typeof m.id === "string" && typeof m.content === "string"
+      (m): m is ChatMessage =>
+        m !== null &&
+        typeof m === "object" &&
+        typeof (m as ChatMessage).id === "string" &&
+        typeof (m as ChatMessage).content === "string"
     );
   } catch {
     return [];

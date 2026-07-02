@@ -4,7 +4,6 @@ import {
   insertDocument,
   insertChunks,
   insertEmbedding,
-  getDocument,
 } from "@/lib/db";
 import { chunkText } from "@/lib/chunking";
 import { embed, invalidateIdfCache } from "@/lib/embeddings";
@@ -49,7 +48,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate MIME type / extension
     const fileName = file.name;
     const ext = "." + (fileName.split(".").pop() ?? "").toLowerCase();
     const mimeType = file.type || "application/octet-stream";
@@ -67,7 +65,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         {
@@ -84,10 +81,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Read content
     const content = await file.text();
 
-    // Insert document
     const docId = generateId("doc");
     const document = insertDocument({
       id: docId,
@@ -97,7 +92,6 @@ export async function POST(req: NextRequest) {
       mime_type: mimeType,
     });
 
-    // Chunk the document
     const chunks = chunkText(content);
     if (chunks.length === 0) {
       return NextResponse.json(
@@ -106,7 +100,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Insert chunks
     const chunkRecords = chunks.map((c) => ({
       id: generateId("chunk"),
       idx: c.idx,
@@ -114,16 +107,13 @@ export async function POST(req: NextRequest) {
     }));
     insertChunks(docId, chunkRecords);
 
-    // Embed each chunk and store
     for (const chunk of chunkRecords) {
       const { vector, norm } = embed(chunk.text);
       insertEmbedding(chunk.id, vector, norm);
     }
 
-    // Invalidate IDF cache (new document affects IDF computation)
     invalidateIdfCache();
 
-    // Revalidate the documents list (if we use ISR anywhere)
     revalidatePath("/");
 
     return NextResponse.json(

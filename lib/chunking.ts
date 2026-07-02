@@ -92,12 +92,23 @@ export function chunkText(
   const chunks: string[] = [];
   let current = "";
 
-  const flush = () => {
-    if (current.trim().length >= minChunkSize) {
-      chunks.push(current.trim());
-    } else if (current.trim().length > 0 && chunks.length > 0) {
+  const flush = (isFinal = false) => {
+    const trimmed = current.trim();
+    if (trimmed.length === 0) {
+      current = "";
+      return;
+    }
+    // Accept the chunk if:
+    // - it meets minChunkSize, OR
+    // - it's the final flush and there are no other chunks (don't lose data)
+    if (
+      trimmed.length >= minChunkSize ||
+      (isFinal && chunks.length === 0)
+    ) {
+      chunks.push(trimmed);
+    } else if (trimmed.length > 0 && chunks.length > 0) {
       // Merge tiny tail into previous chunk
-      chunks[chunks.length - 1] += "\n" + current.trim();
+      chunks[chunks.length - 1] += "\n" + trimmed;
     }
     current = "";
   };
@@ -129,7 +140,7 @@ export function chunkText(
     }
   }
 
-  flush();
+  flush(true);
 
   return chunks.map((text, idx) => ({ idx, text }));
 }

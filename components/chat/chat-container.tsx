@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessageItem, TypingIndicator } from "./chat-message";
 import { ChatInput } from "./chat-input";
@@ -18,22 +18,41 @@ import type { ChatMessage } from "@/lib/types";
  * - Loads messages from localStorage on mount (survives refresh)
  * - Saves messages to localStorage on every change
  * - Reads selected document IDs from context (already persisted by provider)
+ *
+ * Session 5C update:
+ * - Uses messages/setMessages from context (lifted to provider so header can read)
+ * - Loading state for initial load (avoids flash of empty state)
+ * - Don't persist streaming messages (only persist once streaming completes)
  */
 export function ChatContainer() {
-  const { selectedDocumentIds } = useChatContext();
-  // Lazy initializer: load from localStorage on first render
-  const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages());
+  const { selectedDocumentIds, messages, setMessages } = useChatContext();
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Persist messages to localStorage on every change
+  // Load messages on mount (lazy — set loading false after)
   useEffect(() => {
+    const loaded = loadMessages();
+    if (loaded.length > 0) {
+      setMessages(loaded);
+    }
+    setIsLoading(false);
+  }, [setMessages]);
+
+  // Persist messages to localStorage — but ONLY when not streaming
+  // (avoids saving incomplete/partial assistant messages)
+  useEffect(() => {
+    if (isStreaming) return; // skip save during streaming
+    if (isLoading) return; // skip save during initial load
+    // Only save if there are no streaming messages in the array
+    const hasStreaming = messages.some((m) => m.isStreaming);
+    if (hasStreaming) return;
     saveMessages(messages);
-  }, [messages]);
+  }, [messages, isStreaming, isLoading]);
 
   // Auto-scroll to bottom on new messages / streaming chunks
   const scrollToBottom = useCallback(() => {
@@ -96,7 +115,6 @@ export function ChatContainer() {
               role: m.role,
               content: m.content,
             })),
-            // Include selected documents for RAG retrieval
             documentIds:
               selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
           }),
@@ -105,9 +123,7 @@ export function ChatContainer() {
 
         if (!response.ok) {
           const errText = await response.text();
-          throw new Error(
-            `HTTP ${response.status}: ${errText.slice(0, 200)}`
-          );
+          throw new Error(`HTTP ${response.status}: ${errText.slice(0, 200)}`);
         }
 
         if (!response.body) {
@@ -125,7 +141,6 @@ export function ChatContainer() {
           const chunk = decoder.decode(value, { stream: true });
           accumulated += chunk;
 
-          // Update the assistant message in place
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessage.id
@@ -168,7 +183,7 @@ export function ChatContainer() {
         abortControllerRef.current = null;
       }
     },
-    [messages, selectedDocumentIds]
+    [messages, selectedDocumentIds, setMessages]
   );
 
   const handleStop = useCallback(() => {
@@ -187,7 +202,11 @@ export function ChatContainer() {
   return (
     <div className="flex flex-col h-full">
       <ScrollArea ref={scrollAreaRef} className="flex-1">
-        {messages.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full p-8">
+            <div className="text-sm text-muted-foreground">جارٍ التحميل...</div>
+          </div>
+        ) : messages.length === 0 ? (
           <EmptyState onExampleClick={handleExampleClick} />
         ) : (
           <div className="max-w-3xl mx-auto pb-4">
