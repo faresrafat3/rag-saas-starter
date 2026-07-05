@@ -14,8 +14,14 @@ export function ChatHeader() {
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles className="h-4 w-4" />
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg shadow-sm"
+            style={{
+              background:
+                "linear-gradient(135deg, hsl(var(--nile)), hsl(var(--gold)))",
+            }}
+          >
+            <Sparkles className="h-4 w-4 text-white" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight">

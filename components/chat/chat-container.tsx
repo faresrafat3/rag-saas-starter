@@ -25,7 +25,8 @@ import type { ChatMessage } from "@/lib/types";
  * - Don't persist streaming messages (only persist once streaming completes)
  */
 export function ChatContainer() {
-  const { selectedDocumentIds, messages, setMessages } = useChatContext();
+  const { selectedDocumentIds, messages, setMessages, setAbortStream } =
+    useChatContext();
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,6 +34,20 @@ export function ChatContainer() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Register the abort handler with the provider (so header's clearChat can call it)
+  useEffect(() => {
+    const abortFn = () => abortControllerRef.current?.abort();
+    setAbortStream(abortFn);
+    return () => setAbortStream(null);
+  }, [setAbortStream]);
+
+  // Sync local isStreaming with the provider (via custom event)
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("rag-starter:set-streaming", { detail: { isStreaming } })
+    );
+  }, [isStreaming]);
 
   // Load messages on mount (lazy — set loading false after)
   useEffect(() => {

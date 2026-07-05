@@ -39,10 +39,14 @@ interface ChatContextValue {
     updater: import("@/lib/types").ChatMessage[] |
     ((prev: import("@/lib/types").ChatMessage[]) => import("@/lib/types").ChatMessage[])
   ) => void;
-  /** Clear all messages + localStorage */
+  /** Clear all messages + localStorage (also aborts streaming via onClear callback) */
   clearChat: () => void;
   /** Whether there are any messages (for header clear button visibility) */
   hasMessages: boolean;
+  /** Whether the assistant is currently streaming a response */
+  isStreaming: boolean;
+  /** Callback to abort streaming (set by ChatContainer) */
+  setAbortStream: (fn: (() => void) | null) => void;
 }
 
 const ChatContext = React.createContext<ChatContextValue | null>(null);
@@ -57,6 +61,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessagesState] = React.useState<
     import("@/lib/types").ChatMessage[]
   >([]);
+  const [isStreaming, setIsStreamingState] = React.useState(false);
+  const abortStreamRef = React.useRef<(() => void) | null>(null);
 
   // Persist selected doc IDs whenever they change
   React.useEffect(() => {
@@ -76,9 +82,26 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const setAbortStream = React.useCallback((fn: (() => void) | null) => {
+    abortStreamRef.current = fn;
+  }, []);
+
   const clearChat = React.useCallback(() => {
+    // Abort any in-flight streaming before clearing
+    abortStreamRef.current?.();
     setMessagesState([]);
     clearMessages();
+  }, []);
+
+  // Allow ChatContainer to share its streaming state with the provider
+  React.useEffect(() => {
+    // Expose a setter for isStreaming via a custom event
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ isStreaming: boolean }>).detail;
+      setIsStreamingState(detail.isStreaming);
+    };
+    window.addEventListener("rag-starter:set-streaming", handler as EventListener);
+    return () => window.removeEventListener("rag-starter:set-streaming", handler as EventListener);
   }, []);
 
   const toggleDocumentSelection = React.useCallback((id: string) => {
@@ -106,6 +129,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setMessages,
       clearChat,
       hasMessages,
+      isStreaming,
+      setAbortStream,
     }),
     [
       selectedDocumentIds,
@@ -117,6 +142,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setMessages,
       clearChat,
       hasMessages,
+      isStreaming,
+      setAbortStream,
     ]
   );
 

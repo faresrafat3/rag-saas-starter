@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Arabic Geometric Pattern (8-pointed star / khatam)
+  Public domain — traditional Islamic geometric pattern
+  Used as subtle background (opacity ≤ 0.05) for cultural identity.
+
+  Per METHODOLOGIES/cultural-design-identity.md (Level A: Cultural Skin)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none">
+  <!-- 8-pointed star (khatam) — central motif -->
+  <path
+    d="M60 10 L70 35 L95 25 L85 50 L110 60 L85 70 L95 95 L70 85 L60 110 L50 85 L25 95 L35 70 L10 60 L35 50 L25 25 L50 35 Z"
+    stroke="currentColor"
+    stroke-width="0.8"
+    fill="none"
+    opacity="0.6"
+  />
+  <!-- Inner octagon -->
+  <path
+    d="M60 30 L75 45 L75 75 L60 90 L45 75 L45 45 Z"
+    stroke="currentColor"
+    stroke-width="0.6"
+    fill="none"
+    opacity="0.4"
+  />
+  <!-- Inner star -->
+  <path
+    d="M60 40 L67 53 L80 50 L73 62 L80 74 L67 71 L60 84 L53 71 L40 74 L47 62 L40 50 L53 53 Z"
+    stroke="currentColor"
+    stroke-width="0.5"
+    fill="none"
+    opacity="0.3"
+  />
+  <!-- Connecting lines (tile repeat) -->
+  <line x1="0" y1="0" x2="0" y2="120" stroke="currentColor" stroke-width="0.3" opacity="0.2"/>
+  <line x1="120" y1="0" x2="120" y2="120" stroke="currentColor" stroke-width="0.3" opacity="0.2"/>
+  <line x1="0" y1="0" x2="120" y2="0" stroke="currentColor" stroke-width="0.3" opacity="0.2"/>
+  <line x1="0" y1="120" x2="120" y2="120" stroke="currentColor" stroke-width="0.3" opacity="0.2"/>
+  <!-- Diagonal accents -->
+  <line x1="0" y1="0" x2="60" y2="60" stroke="currentColor" stroke-width="0.2" opacity="0.15"/>
+  <line x1="120" y1="0" x2="60" y2="60" stroke="currentColor" stroke-width="0.2" opacity="0.15"/>
+  <line x1="0" y1="120" x2="60" y2="60" stroke="currentColor" stroke-width="0.2" opacity="0.15"/>
+  <line x1="120" y1="120" x2="60" y2="60" stroke="currentColor" stroke-width="0.2" opacity="0.15"/>
+</svg>

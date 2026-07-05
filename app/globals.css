@@ -2,45 +2,81 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * =============================================================================
+ * Cultural Identity: Egyptian Heritage Palette
+ * =============================================================================
+ * Inspired by:
+ * - The Nile River (نيلي / nile blue)
+ * - Pharaonic gold (ذهبي فرعوني)
+ * - Desert sand (رملي)
+ * - Papyrus (بردى)
+ *
+ * Per METHODOLOGIES/cultural-design-identity.md (Level A: Cultural Skin)
+ * ============================================================================= */
+
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  /* === Egyptian Heritage Palette === */
+  --nile: 197 76% 32%;          /* #1B5E8C — النيلي الأساسي */
+  --nile-light: 197 65% 45%;    /* #2D7DAA — نيلي فاتح */
+  --nile-dark: 197 80% 22%;     /* #0F3E5C — نيلي داكن */
+  --gold: 38 53% 60%;           /* #C9A66B — ذهبي فرعوني */
+  --gold-light: 38 50% 72%;     /* #DABF8A — ذهبي فاتح */
+  --gold-dark: 38 56% 48%;      /* #A8843F — ذهبي داكن */
+  --sand: 36 38% 84%;           /* #E6D5B8 — رملي */
+  --papyrus: 45 33% 93%;        /* #F5EFE0 — بردى */
+  --ink: 0 0% 10%;              /* #1A1A1A — حبر أسود */
+
+  /* === Mapped to semantic tokens === */
+  --background: 45 33% 96%;     /* papyrus-like light bg */
+  --foreground: var(--ink);
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
+  --card-foreground: var(--ink);
+  --primary: var(--nile);       /* نيلي كـ primary */
+  --primary-foreground: 45 33% 96%;
+  --secondary: var(--sand);     /* رملي كـ secondary */
+  --secondary-foreground: var(--ink);
+  --muted: 36 30% 90%;
+  --muted-foreground: 0 0% 35%;
+  --accent: var(--gold);        /* ذهبي كـ accent */
+  --accent-foreground: var(--ink);
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 45 33% 96%;
+  --border: 36 20% 82%;
+  --input: 36 20% 82%;
+  --ring: var(--gold);
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  /* === Dark mode with cultural-appropriate colors === */
+  --nile: 197 70% 40%;          /* نيلي أكثر إشراقًا في الـ dark */
+  --nile-light: 197 65% 55%;
+  --nile-dark: 197 75% 28%;
+  --gold: 38 55% 65%;           /* ذهبي أكثر لمعانًا */
+  --gold-light: 38 52% 75%;
+  --gold-dark: 38 58% 52%;
+  --sand: 36 25% 22%;           /* رملي داكن */
+  --papyrus: 45 20% 12%;        /* بردى داكن */
+  --ink: 45 20% 90%;            /* حبر فاتح في الـ dark */
+
+  --background: 200 30% 8%;     /* أزرق داكن جدًا (شبه ليلي) */
+  --foreground: 45 20% 92%;
+  --card: 200 25% 11%;
+  --card-foreground: 45 20% 92%;
+  --primary: var(--nile);
+  --primary-foreground: 200 30% 8%;
+  --secondary: 200 20% 18%;
+  --secondary-foreground: 45 20% 92%;
+  --muted: 200 20% 16%;
+  --muted-foreground: 45 10% 65%;
+  --accent: var(--gold);
+  --accent-foreground: 200 30% 8%;
+  --destructive: 0 60% 40%;
+  --destructive-foreground: 45 20% 92%;
+  --border: 200 20% 18%;
+  --input: 200 20% 18%;
+  --ring: var(--gold);
 }
 
 @theme inline {
@@ -80,8 +116,13 @@
   /* Arabic + RTL: use system Arabic fonts with fallbacks */
   html[lang="ar"] body,
   html[dir="rtl"] body {
-    font-family: "Noto Sans Arabic", "Cairo", "Tajawal", "IBM Plex Sans Arabic",
+    font-family: var(--font-cairo), "Cairo", "Tajawal", "IBM Plex Sans Arabic",
       system-ui, -apple-system, sans-serif;
+  }
+
+  /* Headings: use Reem Kufi for cultural identity */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-reem-kufi), var(--font-cairo), "Reem Kufi", "Cairo", serif;
   }
 
   /* Better typography for Arabic */
@@ -94,23 +135,29 @@
     scroll-behavior: smooth;
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar with cultural accent */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: hsl(var(--muted));
   }
 
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.3);
+    background: hsl(var(--nile) / 0.4);
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
+    background: hsl(var(--nile) / 0.6);
+  }
+
+  /* Selection color with gold accent */
+  ::selection {
+    background: hsl(var(--gold) / 0.3);
+    color: hsl(var(--foreground));
   }
 }
 
@@ -148,4 +195,41 @@
   content: "▋";
   margin-inline-start: 2px;
   animation: blink 1s infinite;
+  color: hsl(var(--gold));
+}
+
+/* Subtle fade-in for messages */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+/* Cultural accent: gold underline for headings */
+.heading-accent {
+  position: relative;
+  display: inline-block;
+}
+
+.heading-accent::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  inset-inline: 0;
+  height: 2px;
+  background: linear-gradient(
+    to inline-end,
+    hsl(var(--gold) / 0),
+    hsl(var(--gold)),
+    hsl(var(--gold) / 0)
+  );
 }

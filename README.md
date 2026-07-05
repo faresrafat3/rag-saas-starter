@@ -9,6 +9,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8.svg)](https://tailwindcss.com/)
 [![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-4-FF0080.svg)](https://sdk.vercel.ai/)
+[![Tests: 71](https://img.shields.io/badge/tests-71%20passing-brightgreen.svg)](#testing)
 [![Status: WIP](https://img.shields.io/badge/status-WIP-orange.svg)](CHANGELOG.md)
 
 > ⚠️ **Status**: Work in progress — Sessions 4-5 complete (skeleton + chat UI + RAG pipeline + provider integration + persistence). Deployment + screenshots + demo video coming in session 6.
@@ -181,6 +182,98 @@ Streaming response to client
 |---|---|---|
 | **Real (OpenAI)** | `OPENAI_API_KEY` set in `.env.local` | Uses `streamText()` with `gpt-4o-mini` (configurable) |
 | **Mock** | No API key | Returns realistic Arabic mock responses (still shows RAG context) |
+
+---
+
+## 🧪 Testing
+
+This project includes **71 unit tests** (all passing) covering the core RAG logic:
+
+| Test File | Tests | Coverage |
+|---|---|---|
+| `lib/chunking.test.ts` | 22 | Sentence splitting (Arabic + English terminators), chunk size constraints, overlap, edge cases |
+| `lib/embeddings.test.ts` | 30 | Tokenization, Arabic normalization (diacritics/alef/ya/ta marbuta), stopwords, cosine similarity |
+| `lib/persistence.test.ts` | 19 | localStorage load/save, SSR safety, quota handling |
+
+### Run Tests
+
+```bash
+# Run all tests once
+npm test
+
+# Watch mode (during development)
+npm run test:watch
+
+# With coverage report
+npm run test:coverage
+```
+
+### CI/CD
+
+GitHub Actions automatically run on every push/PR:
+- `.github/workflows/test.yml` — type-check + tests + coverage
+- `.github/workflows/build.yml` — production build verification
+
+---
+
+## 🎨 Cultural Identity
+
+This project applies a **Cultural Skin** (Level A) of Egyptian Heritage design, following the methodology in [`fares-career-lab/METHODOLOGIES/cultural-design-identity.md`](https://github.com/faresrafat3/fares-career-lab/blob/main/METHODOLOGIES/cultural-design-identity.md).
+
+### The 3-Layer Approach
+
+Inspired by **World Cup national team kits** — which blend heritage + idea + authentic craft:
+
+| Layer | Implementation in this project |
+|---|---|
+| **التراث (Heritage)** | Egyptian Heritage palette (Nile blue `#1B5E8C` + Pharaonic gold `#C9A66B` + sand + papyrus) |
+| **الفكرة (Idea)** | Arabic-first UX: RTL default, Arabic microcopy, inspiring empty states (not "no data") |
+| **الفن الأصيل (Craft)** | Cairo + Reem Kufi typography, Arabic geometric SVG pattern (8-pointed star), gold gradient accents, consistent spacing rhythm |
+
+### Color Palette
+
+```css
+--nile:    #1B5E8C;  /* النيلي — primary */
+--gold:    #C9A66B;  /* ذهبي فرعوني — accent */
+--sand:    #E6D5B8;  /* رملي — secondary */
+--papyrus: #F5EFE0;  /* بردى — background */
+--ink:     #1A1A1A;  /* حبر — text */
+```
+
+### Typography
+
+- **Body**: Cairo (Google Fonts, OFL) — modern, readable Arabic
+- **Headings**: Reem Kufi (Google Fonts, OFL) — cultural identity for titles
+- **Mono**: IBM Plex Mono (OFL) — for code blocks
+
+### Geometric Pattern
+
+The empty state features a subtle 8-pointed star (khatam) pattern at 3% opacity — a traditional Islamic geometric motif. See `public/patterns/arabic-geometric.svg`.
+
+---
+
+## 📸 Screenshots
+
+> 🚧 **Coming after deployment** — screenshots will be added once the app is live on Vercel.
+
+| View | Screenshot |
+|---|---|
+| Empty state (with pattern) | _TODO: `docs/screenshots/empty-state.png`_ |
+| Chat conversation | _TODO: `docs/screenshots/chat.png`_ |
+| Document panel | _TODO: `docs/screenshots/documents.png`_ |
+| RAG in action | _TODO: `docs/screenshots/rag.png`_ |
+| Mobile drawer | _TODO: `docs/screenshots/mobile.png`_ |
+| Dark mode | _TODO: `docs/screenshots/dark-mode.png`_ |
+
+---
+
+## 🎥 Live Demo
+
+> 🚧 **Coming soon** — the app will be deployed on Vercel.
+>
+> **Live URL**: _TODO: `https://rag-saas-starter.vercel.app`_
+>
+> **Demo video** (60 sec): _TODO: YouTube/Loom link_
 
 ---
 
