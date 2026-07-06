@@ -91,7 +91,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - `lib/persistence.ts` — localStorage helpers (messages + selected docs)
 - `components/chat/mobile-doc-drawer.tsx` — pure CSS drawer
 - Mobile toggle button in chat header
-- README: comprehensive Limitations & Production Notes section
+- README: Limitations & Production Notes section (MVP limits, security, performance)
 
 ### Fixed
 - README now documents all limitations honestly

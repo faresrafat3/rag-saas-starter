@@ -1,6 +1,6 @@
 # 🚀 rag-saas-starter
 
-> **Production-ready RAG chatbot SaaS starter** with Arabic support, multi-document chat, and streaming responses.
+> RAG chatbot SaaS starter with Arabic support, multi-document chat, and streaming responses.
 >
 > Built with Next.js 16 + Vercel AI SDK + shadcn/ui.
 
@@ -25,7 +25,7 @@
 - 🗂️ **Document management UI** — sidebar with upload/select/delete
 - 💾 **Chat history persistence** — localStorage (survives page refresh)
 - 📱 **Mobile responsive** — Drawer for documents panel on small screens
-- 🎨 **Beautiful UI** — shadcn/ui + Tailwind + dark/light/system theme
+- 🎨 **UI** — shadcn/ui + Tailwind + dark/light/system theme
 - 🔍 **Local TF-IDF retrieval** — works offline, no API key needed for RAG retrieval
 - 🤖 **Provider-agnostic** — OpenAI / Anthropic via Vercel AI SDK; mock mode fallback
 
@@ -279,10 +279,10 @@ The empty state features a subtle 8-pointed star (khatam) pattern at 3% opacity 
 
 ## 🙏 Acknowledgments
 
-This project is a **Smart Remix** built on top of excellent open-source work:
+This project is a **Smart Remix** built on top of open-source work:
 
 - [Vercel AI SDK](https://sdk.vercel.ai/) (Apache 2.0) — for `streamText()`, provider abstraction, and streaming protocol
-- [shadcn/ui](https://ui.shadcn.com) (MIT) — for the beautiful component library
+- [shadcn/ui](https://ui.shadcn.com) (MIT) — for the component library
 - [Next.js](https://nextjs.org) (MIT) — for the App Router + Route Handlers
 - [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) (MIT) — for the synchronous SQLite driver
 - [LangChain](https://langchain.com) (MIT) — inspiration for the RAG pattern + chunking strategy
