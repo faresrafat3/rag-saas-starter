@@ -1,25 +1,20 @@
-## Description
-<!-- Please include a summary of the change and which issue is fixed. Include relevant motivation and context. -->
+## Objective
+<!-- Describe the feature, bug fix, or UI enhancement you are bringing to the SaaS starter. -->
 
-Fixes # (issue)
+## Area of Change
+- [ ] 🎨 UI / Frontend (shadcn, Tailwind)
+- [ ] ⚡ AI Streaming / Vercel AI SDK
+- [ ] 📚 RAG Pipeline / Document Chunking / TF-IDF
+- [ ] 🌐 Localization / Arabic RTL
 
-## Type of change
-<!-- Please delete options that are not relevant. -->
-- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
-- [ ] ✨ New feature (non-breaking change which adds functionality)
-- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] 📝 Documentation update
-- [ ] 🚀 Performance/Cost Optimization (e.g., token reduction)
+## The RTL / Arabic Checklist 🌍
+<!-- This is our core feature. You MUST check these if you touched the UI. -->
+- [ ] I used logical Tailwind classes (`ms-`, `pe-`, `text-start`) instead of physical ones (`ml-`, `pr-`, `text-left`).
+- [ ] I tested the UI layout with an Arabic string to ensure the direction flips correctly.
+- [ ] The Drawer/Sidebar operates smoothly on mobile devices in both LTR and RTL.
 
-## Architecture Impact
-<!-- For AI/Agent repos: Does this change the prompt flow, the decision tree, or the orchestration logic? -->
-- [ ] Yes
-- [ ] No
-
-## Checklist:
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas (like prompt engineering logic)
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings/errors in the CI pipeline
-- [ ] I have added tests that prove my fix is effective or that my feature works
+## Engineering Checklist
+- [ ] My code is written in TypeScript and has no `any` types (where avoidable).
+- [ ] I verified that the streaming chat does not break when switching between models/providers.
+- [ ] Local storage persistence for chat history remains intact.
+- [ ] `npm run lint` and `npm run build` pass without warnings.
