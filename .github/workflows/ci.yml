@@ -12,7 +12,11 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        # Next.js 16 requires Node.js >= 20.9.0 (the 18.x job failed
+        # with "For Next.js, Node.js version \">=20.9.0\" is required"
+        # on 2026-09-04). Drop 18.x and pin to 20.x; bump to 22.x
+        # once Vitest 4.1.10's >=22.12.0 engine requirement matters.
+        node-version: [20.x]
 
     steps:
     - uses: actions/checkout@v7
