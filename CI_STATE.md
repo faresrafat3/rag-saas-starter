@@ -10,15 +10,17 @@
 ## TL;DR
 
 CI on `main` is currently **red** on three workflows
-(`Build`, `Node.js CI`, `Tests`). Three commits this round
-unblocked the build-step (lock file sync, missing icon,
-Node 18 → 20). What remains is a real Vercel AI SDK
-version-mismatch and a missing shadcn/ui component. Both
-are out of scope for a one-round fix.
+(`Build`, `Node.js CI`, `Tests`). The blocker is a single
+TypeScript error in `lib/ai-provider.ts:160` — a real
+Vercel AI SDK version mismatch (`ai@7` + provider packages
+`@1` returning `LanguageModelV1`). Two earlier blockers
+(popover component + citations implicit any) were fixed
+in round 49. The SDK bump needs its own session; this
+doc is the handoff.
 
 ---
 
-## What was fixed this round (3 commits, in order)
+## What was fixed in round 48 (3 commits, in order)
 
 ### 1. `9f98bfe` — `fix(deps): regenerate package-lock.json`
 
@@ -31,6 +33,29 @@ After the lock-file fix, `next lint` surfaced a pre-existing import error: `impo
 ### 3. `0155fb6` — `fix(ci): drop Node 18 from matrix`
 
 After the icon fix, the 18.x matrix job failed at `next lint` with: `You are using Node.js 18.20.8. For Next.js, Node.js version ">=20.9.0" is required.` Next.js 16 (pinned in `package.json`) requires Node 20.9+. Dropped 18.x, pinned matrix to `[20.x]`. Vitest's engine warning (`>=22.12.0`) is informational only today; the `Tests` workflow already pinned to 20.x so this just makes `Node.js CI` consistent.
+
+---
+
+## What was fixed in round 49 (1 commit)
+
+### 4. `0553d00` — `fix(ci): address 2 of 3 issues documented in CI_STATE.md`
+
+The `Build` workflow now compiles successfully (`✓ Compiled successfully in 3.9s`) and the popover + citations type errors are gone. Only issue A (Vercel AI SDK version mismatch) remains.
+
+**Fix B: popover component**
+- Added `components/ui/popover.tsx` (Radix wrapper, shadcn-style; matches the existing `dropdown-menu.tsx`/`scroll-area.tsx` patterns)
+- Added `@radix-ui/react-popover@^1.1.0` to `dependencies` (alphabetical position)
+- Regenerated `package-lock.json` via `npm install --package-lock-only`
+
+**Fix C: citations type**
+- `lib/rag/agentic_rag.ts(48)`: `const citations = []` → `const citations: { id: number; source: string }[] = []` (matches the `push({ id, source })` on line 54)
+- No behavior change; pure type annotation
+
+**Bonus: engines field**
+- `package.json` had `engines.node = ">=18.0.0"`, but Next.js 16 needs `>=20.9.0` (and the CI matrix already dropped 18.x for this reason)
+- Bumped to `engines.node = ">=20.9.0"` so `npm install` warns/fails consistently with the CI matrix
+
+**CI state after this commit:** all three workflows (`Build`, `Node.js CI`, `Tests`) still red, but only on issue A (one error, in `lib/ai-provider.ts:160`). The popover error and the citations error are gone.
 
 ---
 
@@ -100,12 +125,11 @@ This is the third round of audit work on this repo:
 
 ## Recommended next steps (in order)
 
-1. **Run `npx shadcn@latest add popover`** — generates the missing `components/ui/popover.tsx` and adds `@radix-ui/react-popover` to `package.json` and `package-lock.json`. One command, no code review needed.
-2. **Fix the citations type annotation** — 1-line change in `lib/rag/agentic_rag.ts`. Trivial.
-3. **Bump `@ai-sdk/openai` and `@ai-sdk/anthropic` to `^2.0.0`** — careful, the V2 API is different (e.g. `openai('gpt-4o')` returns V2 model; `streamText` may need updated args). Test thoroughly.
-4. **Re-enable 18.x** (optional) — only if a future Next.js version relaxes the Node 20.9+ requirement, or if you bump to Next.js 17+ which may support older Node.
+1. **Bump `@ai-sdk/openai` and `@ai-sdk/anthropic` to `^2.0.0`** (or higher) — careful, the V2 API is different (V2 model requires `supportedUrls`; V2 provider calls have different return types). Test thoroughly. The current `^1.0.0` pins are 3 majors behind the latest (V4 is current). This is the only remaining CI blocker.
+2. **Re-enable 18.x in matrix** (optional) — only if a future Next.js version relaxes the Node 20.9+ requirement, or if you bump to Next.js 17+ which may support older Node. Note `engines.node` was bumped to `>=20.9.0` in commit `0553d00`.
+3. **CVE-2025-66478 patch in `next@16`** (optional) — pinned `next@16.0.0` has a security vulnerability. A later 16.x point release should fix it. Major-version bump (e.g. to 17) is a much bigger change.
 
-Each of (1) and (2) is a small, safe change. (3) is a real architecture bump that deserves its own session.
+(1) is a real architecture bump that deserves its own session. (2) and (3) are follow-ups.
 
 ---
 
