@@ -45,7 +45,7 @@ export class AgenticRAG {
     
     // Format for the LLM Prompt (Numbered Contexts)
     let contextString = "";
-    const citations = [];
+    const citations: { id: number; source: string }[] = [];
     
     finalDocs.forEach((doc, index) => {
       const citationId = index + 1;
