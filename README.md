@@ -23,7 +23,7 @@
 - 💾 **Chat History Persistence** — LocalStorage (survives page refreshes).
 - 📱 **Mobile Responsive** — Beautiful drawer for document panels on small screens.
 - 🎨 **Modern UI** — Powered by shadcn/ui + TailwindCSS + Dark/Light themes.
-- 🔍 **Local TF-IDF Retrieval** — Works offline, no external API key needed for RAG retrieval.
+- 🔍 **SOTA Agentic RAG** — ChromaDB (dev) / Pinecone (prod) vector store with bge-m3 semantic embeddings, query decomposition, semantic chunking, and auditable citations.
 - 🤖 **Provider-Agnostic** — Seamlessly switch between OpenAI and Anthropic via Vercel AI SDK.
 
 ## 🚀 Getting Started
