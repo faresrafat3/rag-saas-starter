@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Github, FileText, PanelRight, Trash2 } from "lucide-react";
+import { Sparkles, GitBranch, FileText, PanelRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { useChatContext } from "./chat-provider";
@@ -87,7 +87,7 @@ export function ChatHeader() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Github className="h-4 w-4" />
+              <GitBranch className="h-4 w-4" />
             </a>
           </Button>
           <Button
