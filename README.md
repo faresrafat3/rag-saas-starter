@@ -4,7 +4,7 @@
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-4-000000.svg?style=for-the-badge&logo=vercel&logoColor=white)](https://sdk.vercel.ai/)
+[![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-7-000000.svg?style=for-the-badge&logo=vercel&logoColor=white)](https://sdk.vercel.ai/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
