@@ -136,3 +136,39 @@ This is the third round of audit work on this repo:
 ## Security note
 
 `npm audit` reports 15 vulnerabilities (2 critical, 9 high) on this lock file, including `CVE-2025-66478` in `next@16.0.0` (which is pinned, not `^`). Those are separate from the lock-file sync issue and require a careful dependency-bump session. See `npm audit` output for the full list.
+
+---
+
+## Round 62 attempt (2026-09-04) — reverted
+
+In round 62, I attempted the recommended fix #1 above (bump `@ai-sdk/openai` and `@ai-sdk/anthropic` from `^1.0.0` to `^2.0.x`). Concretely:
+
+- `@ai-sdk/openai`: `^1.0.0` → `^2.0.124`
+- `@ai-sdk/anthropic`: `^1.0.0` → `^2.0.101`
+- Lock file regenerated via `npm install --package-lock-only`
+
+**Result:** reverted. The local environment could not complete `npm install` in under 5 minutes (the chromadb + pinecone + transformers + next 16 + provider deps take too long for the session timeout), so the build could not be verified. Without build verification, the change is too risky to push — the V1→V2 provider API is a real breaking change.
+
+**For the next session:** the fix is ready. To complete it:
+
+```bash
+cd /path/to/rag-saas-starter
+# Apply the package.json change (the v2 provider pins)
+# Then:
+npm install
+npm run build
+# If the build passes, commit package.json + package-lock.json
+# If the build fails, the V2 API call signature may differ from V1;
+# consult the Vercel AI SDK migration guide for the v1→v2 jump
+```
+
+**Other follow-up considered but not attempted:**
+
+- **`next@16.0.0` → `next@16.3.4`** for `CVE-2025-66478` patch — would also need build verification. Latest 16.x stable is `16.3.4` (verified via `npm view next versions --json | jq`).
+- **`next@16.0.0` → `next@17`** — major version bump, much bigger change, separate session entirely.
+
+The recommended fix from round 49 is the highest-leverage next step: a one-character-version change in `package.json` that unblocks CI.
+
+---
+
+*Last updated: 2026-09-04, round 64*
